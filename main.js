@@ -1,37 +1,50 @@
-Implement the getPostsByTags function in app.js:
+Implement the getFileContents function in app.js:
 
 const express = require('express');
 const app = express();
+const fs = require('fs');
 
-const posts = [
-  {
-    id: '1',
-    title: 'First post',
-    content: 'This is the first post.',
-    tags: ['tag1', 'tag2']
-  },
-  {
-    id: '2',
-    title: 'Second post',
-    content: 'This is the second post.',
-    tags: ['tag2', 'tag3']
-  },
-  {
-    id: '3',
-    title: 'Third post',
-    content: 'This is the third post.',
-    tags: ['tag3', 'tag4']
-  }
-];
-
-function getPostsByTags(tags) {
+function getFileContents(filePath, startByte, endByte) {
   // Implement this function
 }
 
-app.get('/posts', (req, res) => {
-  const tags = req.query.tags;
-  const posts = getPostsByTags(tags);
-  res.json(posts);
+app.get('/file', (req, res) => {
+  const filePath = req.query.filePath;
+  const startByte = parseInt(req.query.startByte);
+  const endByte = parseInt(req.query.endByte);
+
+  const fileStats = fs.statSync(filePath);
+  const fileSize = fileStats.size;
+  const chunkSize = 1024 * 1024;
+
+  if (startByte >= fileSize || endByte < 0) {
+    res.status(416).end();
+    return;
+  }
+
+  const headers = {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': endByte - startByte + 1,
+    'Content-Range': `bytes ${startByte}-${endByte}/${fileSize}`,
+    'Accept-Ranges': 'bytes'
+  };
+
+  res.writeHead(206, headers);
+
+  const fileStream = fs.createReadStream(filePath, { start: startByte, end: endByte });
+
+  fileStream.on('error', (err) => {
+    res.status(500).end();
+    console.error(err);
+  });
+
+  fileStream.on('open', () => {
+    fileStream.pipe(res);
+  });
+
+  fileStream.on('end', () => {
+    res.end();
+  });
 });
 
 app.listen(3000, () => {
